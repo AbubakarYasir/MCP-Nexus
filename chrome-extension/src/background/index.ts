@@ -32,6 +32,7 @@ import type {
   UpdateServerConfigRequest,
   HeartbeatRequest,
   ConnectionStatusChangedBroadcast,
+  ToolDiscoveryStatus,
   ToolUpdateBroadcast,
   ServerConfigUpdatedBroadcast,
   HeartbeatResponseBroadcast
@@ -64,11 +65,35 @@ let isInitialized: boolean = false;
 // A failed refresh must never masquerade as a successful empty catalog.
 let lastKnownGoodTools: any[] = [];
 let hasSuccessfulToolSnapshot = false;
+let lastSuccessfulToolDiscoveryAt: number | undefined;
+let lastToolDiscoveryStatus: ToolDiscoveryStatus | undefined;
 
 function rememberSuccessfulTools(tools: any[]): any[] {
+  const timestamp = Date.now();
+
   lastKnownGoodTools = [...tools];
   hasSuccessfulToolSnapshot = true;
+  lastSuccessfulToolDiscoveryAt = timestamp;
+  lastToolDiscoveryStatus = {
+    status: 'success',
+    timestamp,
+    toolCount: tools.length,
+    preservedPreviousCatalog: false,
+    lastSuccessfulAt: timestamp,
+  };
+
   return tools;
+}
+
+function createToolDiscoveryFailure(error: unknown): ToolDiscoveryStatus {
+  return {
+    status: 'error',
+    timestamp: Date.now(),
+    toolCount: lastKnownGoodTools.length,
+    preservedPreviousCatalog: hasSuccessfulToolSnapshot,
+    lastSuccessfulAt: lastSuccessfulToolDiscoveryAt,
+    error: error instanceof Error ? error.message : String(error),
+  };
 }
 
 /**
@@ -751,16 +776,25 @@ async function handleMcpMessage(
           // Use the helper function to normalize tools with proper schema handling
           const tools = rememberSuccessfulTools(normalizeTools(primitives));
           logger.debug(`Returning ${tools.length} normalized tools to content script`);
-          
-          result = tools;
+
+          result = {
+            tools,
+            discovery: lastToolDiscoveryStatus,
+          };
         } catch (error) {
           logger.error('[Background] Error getting tools:', error);
+
+          const discovery = createToolDiscoveryFailure(error);
+          lastToolDiscoveryStatus = discovery;
 
           if (hasSuccessfulToolSnapshot) {
             logger.warn(
               `[Background] Tool refresh failed; preserving ${lastKnownGoodTools.length} last-known-good tool(s)`,
             );
-            result = [...lastKnownGoodTools];
+            result = {
+              tools: [...lastKnownGoodTools],
+              discovery,
+            };
           } else {
             throw error;
           }
@@ -1025,7 +1059,8 @@ function broadcastToolsUpdateToContentScripts(tools: any[]) {
   const broadcastMessage: BaseMessage & { payload: ToolUpdateBroadcast } = {
     type: 'mcp:tool-update',
     payload: {
-      tools
+      tools,
+      discovery: lastToolDiscoveryStatus,
     },
     origin: 'background',
     timestamp: Date.now()
