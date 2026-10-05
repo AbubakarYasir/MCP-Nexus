@@ -11,6 +11,7 @@ import type { ClientConfig, ConnectionRequest } from '../types/config.js';
 import { DEFAULT_CLIENT_CONFIG } from '../types/config.js';
 import type { TransportType, ITransportPlugin, PluginConfig } from '../types/plugin.js';
 import type { Primitive, NormalizedTool, PrimitivesResponse } from '../types/primitives.js';
+import { normalizeToolValues } from '../utils/toolCatalog.js';
 import type { AllEvents } from '../types/events.js';
 import { createLogger } from '@extension/shared/lib/logger';
 import { analyticsService } from '../../../utils/analytics-service.js';
@@ -404,8 +405,17 @@ export class McpClient extends EventEmitter<AllEvents> {
       logger.debug('[McpClient] Fetching primitives from server...');
       const primitives = await this.activePlugin.getPrimitives(this.client);
 
-      // Normalize tools
-      const tools = this.normalizeTools(primitives.filter(p => p.type === 'tool'));
+      // Normalize tools independently. A genuinely empty raw list is valid,
+      // but a non-empty raw list where every tool was rejected is a discovery failure.
+      const toolPrimitives = primitives.filter(p => p.type === 'tool');
+      const tools = this.normalizeTools(toolPrimitives);
+
+      if (toolPrimitives.length > 0 && tools.length === 0) {
+        throw new Error(
+          `MCP tool discovery returned ${toolPrimitives.length} raw tool(s), but none could be normalized`,
+        );
+      }
+
       const resources = primitives.filter(p => p.type === 'resource').map(p => p.value);
       const prompts = primitives.filter(p => p.type === 'prompt').map(p => p.value);
 
@@ -459,21 +469,23 @@ export class McpClient extends EventEmitter<AllEvents> {
   }
 
   private normalizeTools(toolPrimitives: Primitive[]): NormalizedTool[] {
-    return toolPrimitives.map(p => {
-      const tool = p.value;
-      return {
-        name: tool.name,
-        description: tool.description || '',
-        input_schema: tool.inputSchema || tool.input_schema || {},
-        schema: tool.inputSchema
-          ? JSON.stringify(tool.inputSchema)
-          : tool.input_schema
-            ? JSON.stringify(tool.input_schema)
-            : '{}',
-        ...(tool.uri && { uri: tool.uri }),
-        ...(tool.arguments && { arguments: tool.arguments }),
-      };
+    const { tools, rejections } = normalizeToolValues(
+      toolPrimitives.map(primitive => (primitive as any)?.value),
+    );
+
+    rejections.forEach(rejection => {
+      logger.warn(
+        `[McpClient] Rejected tool at index ${rejection.index}: ${rejection.reason}`,
+      );
     });
+
+    if (rejections.length > 0) {
+      logger.warn(
+        `[McpClient] Accepted ${tools.length}/${toolPrimitives.length} raw tools; rejected ${rejections.length}`,
+      );
+    }
+
+    return tools;
   }
 
   private clearPrimitivesCache(): void {

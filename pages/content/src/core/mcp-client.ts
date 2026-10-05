@@ -188,7 +188,25 @@ class McpClient {
     // Listen for tool-list updates (broadcast by background when primitives change)
     contextBridge.onMessage('mcp:tool-update', message => {
       try {
-        const tools = Array.isArray(message.payload) ? message.payload : [];
+        const payload = message.payload;
+        const tools = Array.isArray(payload)
+          ? payload
+          : Array.isArray(payload?.tools)
+            ? payload.tools
+            : null;
+
+        if (!tools) {
+          logMessage('[McpClient] Ignoring malformed tool update: expected payload.tools array');
+          return;
+        }
+
+        if (!Array.isArray(payload) && payload?.discovery) {
+          const discovery = payload.discovery;
+          logMessage(
+            `[McpClient] Tool discovery ${discovery.status}: ${discovery.toolCount} tool(s)${discovery.preservedPreviousCatalog ? ' (previous catalog preserved)' : ''}${discovery.error ? ` - ${discovery.error}` : ''}`,
+          );
+        }
+
         logMessage(`[McpClient] Received tool update: ${tools.length} tools`);
         this.handleToolUpdate(tools);
       } catch (error) {
@@ -281,17 +299,51 @@ class McpClient {
   /**
    * Handle tool updates from background script
    */
+  private normalizeIncomingTools(tools: any[]): any[] {
+    const normalizedTools: any[] = [];
+
+    tools.forEach((tool, index) => {
+      if (!tool || typeof tool !== 'object') {
+        logMessage(`[McpClient] Ignoring tool at index ${index}: not an object`);
+        return;
+      }
+
+      if (typeof tool.name !== 'string' || tool.name.trim().length === 0) {
+        logMessage(`[McpClient] Ignoring tool at index ${index}: missing valid name`);
+        return;
+      }
+
+      const rawInputSchema = tool.input_schema ?? tool.inputSchema ?? {};
+      const inputSchema =
+        rawInputSchema && typeof rawInputSchema === 'object' ? rawInputSchema : {};
+
+      let schema = typeof tool.schema === 'string' ? tool.schema : '{}';
+      if (typeof tool.schema !== 'string') {
+        try {
+          schema = JSON.stringify(inputSchema) ?? '{}';
+        } catch (error) {
+          logMessage(
+            `[McpClient] Could not serialize schema for tool "${tool.name}"; using empty schema: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
+      }
+
+      normalizedTools.push({
+        ...tool,
+        name: tool.name,
+        description: typeof tool.description === 'string' ? tool.description : '',
+        input_schema: inputSchema,
+        schema,
+      });
+    });
+
+    return normalizedTools;
+  }
+
   private handleToolUpdate(tools: any[]): void {
     logMessage(`[McpClient] Received tool update with ${tools.length} tools`);
 
-    // Normalize tool data to ensure consistent schema
-    const normalizedTools = tools.map(tool => ({
-      name: tool.name,
-      description: tool.description || '',
-      input_schema: tool.input_schema || tool.schema || {},
-      // Legacy support
-      schema: typeof tool.schema === 'string' ? tool.schema : JSON.stringify(tool.input_schema || {})
-    }));
+    const normalizedTools = this.normalizeIncomingTools(tools);
 
     useToolStore.getState().setAvailableTools(normalizedTools);
     eventBus.emit('tool:list-updated', { tools: normalizedTools });
@@ -470,24 +522,35 @@ class McpClient {
     logMessage(`[McpClient] Getting available tools (forceRefresh: ${forceRefresh})`);
 
     try {
-      const tools = await contextBridge.sendMessage(
+      const response = await contextBridge.sendMessage(
         'background',
         'mcp:get-tools',
         { forceRefresh },
         { timeout: 10_000 }
       );
 
-      // Validate and normalize tools
-      const validatedTools = Array.isArray(tools) ? tools : [];
-      const normalizedTools = validatedTools.map(tool => ({
-        name: tool.name,
-        description: tool.description || '',
-        input_schema: tool.input_schema || tool.schema || {},
-        // Legacy support
-        schema: typeof tool.schema === 'string' ? tool.schema : JSON.stringify(tool.input_schema || {})
-      }));
+      // Support the legacy array response while preferring the Nexus
+      // structured discovery contract.
+      const tools = Array.isArray(response)
+        ? response
+        : Array.isArray(response?.tools)
+          ? response.tools
+          : null;
 
-      // Update store for consumers
+      if (!tools) {
+        throw new Error('Invalid tool discovery response: expected tools array');
+      }
+
+      if (!Array.isArray(response) && response?.discovery) {
+        const discovery = response.discovery;
+        logMessage(
+          `[McpClient] Tool discovery ${discovery.status}: ${discovery.toolCount} tool(s)${discovery.preservedPreviousCatalog ? ' (previous catalog preserved)' : ''}${discovery.error ? ` - ${discovery.error}` : ''}`,
+        );
+      }
+
+      const normalizedTools = this.normalizeIncomingTools(tools);
+
+      // Update store only after a successful discovery response.
       useToolStore.getState().setAvailableTools(normalizedTools);
 
       logMessage(`[McpClient] Retrieved ${normalizedTools.length} tools`);

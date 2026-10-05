@@ -816,7 +816,7 @@ const ServerStatus: React.FC<ServerStatusProps> = ({ status: initialStatus }) =>
                 />
                 <div className="mt-2 text-xs text-slate-500 dark:text-slate-400">
                   <div className="mb-2">
-                    <strong>To start MCP SuperAssistant Proxy:</strong>
+                    <strong>To start MCP Nexus Proxy:</strong>
                   </div>
                   <div className="bg-slate-100 dark:bg-slate-800 p-2 rounded font-mono text-xs border">
                     npx @srbhptl39/mcp-superassistant-proxy@latest --config ./config.json --outputTransport {connectionType === 'sse' ? 'sse' : connectionType === 'websocket' ? 'ws' : 'streamableHttp'}
@@ -826,26 +826,26 @@ const ServerStatus: React.FC<ServerStatusProps> = ({ status: initialStatus }) =>
                       Available transports: <code>streamableHttp</code>, <code>sse</code>, <code>ws</code>
                     </div>
                     <div className="mt-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded border border-blue-200 dark:border-blue-800">
-                      <div className="font-medium text-blue-800 dark:text-blue-200 mb-1">📡 Public Endpoints Supported:</div>
+                      <div className="font-medium text-blue-800 dark:text-blue-200 mb-1">ðŸ“¡ Public Endpoints Supported:</div>
                       <div className="text-blue-700 dark:text-blue-300 space-y-1">
-                        <div>• <strong>Zapier:</strong> Public MCP endpoints with CORS enabled</div>
-                        <div>• <strong>Composio:</strong> SSE and Streamable HTTP endpoints</div>
-                        <div>• <strong>Custom servers:</strong> Any MCP server with CORS headers</div>
+                        <div>â€¢ <strong>Zapier:</strong> Public MCP endpoints with CORS enabled</div>
+                        <div>â€¢ <strong>Composio:</strong> SSE and Streamable HTTP endpoints</div>
+                        <div>â€¢ <strong>Custom servers:</strong> Any MCP server with CORS headers</div>
                       </div>
                       <div className="mt-2 text-xs text-blue-600 dark:text-blue-400">
                         <strong>Note:</strong> WebSocket connections require local servers or proxy due to browser security restrictions.
                       </div>
                     </div>
                     {/* <div className="mt-3 p-2 bg-green-50 dark:bg-green-900/20 rounded border border-green-200 dark:border-green-800">
-                      <div className="font-medium text-green-800 dark:text-green-200 mb-2">🌍 Example Public Endpoints:</div>
+                      <div className="font-medium text-green-800 dark:text-green-200 mb-2">ðŸŒ Example Public Endpoints:</div>
                       <div className="text-green-700 dark:text-green-300 space-y-1 text-xs">
                         <div><strong>SSE:</strong></div>
-                        <div className="ml-2">• <code>https://api.zapier.com/v1/mcp/sse</code></div>
-                        <div className="ml-2">• <code>https://composio.dev/api/mcp/sse</code></div>
+                        <div className="ml-2">â€¢ <code>https://api.zapier.com/v1/mcp/sse</code></div>
+                        <div className="ml-2">â€¢ <code>https://composio.dev/api/mcp/sse</code></div>
                         <div className="mt-2"><strong>Streamable HTTP:</strong></div>
-                        <div className="ml-2">• <code>https://api.zapier.com/v1/mcp</code></div>
-                        <div className="ml-2">• <code>https://composio.dev/api/mcp</code></div>
-                        <div className="ml-2">• <code>https://your-server.com/mcp</code></div>
+                        <div className="ml-2">â€¢ <code>https://api.zapier.com/v1/mcp</code></div>
+                        <div className="ml-2">â€¢ <code>https://composio.dev/api/mcp</code></div>
+                        <div className="ml-2">â€¢ <code>https://your-server.com/mcp</code></div>
                       </div>
                     </div> */}
                   </div>

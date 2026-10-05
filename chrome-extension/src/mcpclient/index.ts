@@ -10,6 +10,7 @@ import { WebSocketTransport } from './plugins/websocket/WebSocketTransport.js';
 
 // Configuration
 import { DEFAULT_CLIENT_CONFIG } from './types/config.js';
+import { normalizeToolValues } from './utils/toolCatalog.js';
 import { createLogger } from '@extension/shared/lib/logger';
 
 // Export core classes
@@ -292,18 +293,17 @@ export async function getPrimitivesWithWebSocket(
 
 // Utility function for normalizing tools
 export function normalizeToolsFromPrimitives(primitives: any[]): any[] {
-  return primitives
-    .filter(p => p.type === 'tool')
-    .map(p => {
-      const tool = p.value;
-      return {
-        name: tool.name,
-        description: tool.description || '',
-        input_schema: tool.inputSchema || tool.input_schema || {},
-        schema: tool.inputSchema ? JSON.stringify(tool.inputSchema) : 
-                tool.input_schema ? JSON.stringify(tool.input_schema) : '{}',
-        ...(tool.uri && { uri: tool.uri }),
-        ...(tool.arguments && { arguments: tool.arguments })
-      };
-    });
+  const rawTools = primitives
+    .filter(primitive => primitive?.type === 'tool')
+    .map(primitive => primitive.value);
+
+  const { tools, rejections } = normalizeToolValues(rawTools);
+
+  rejections.forEach(rejection => {
+    logger.warn(
+      `[normalizeToolsFromPrimitives] Rejected tool at index ${rejection.index}: ${rejection.reason}`,
+    );
+  });
+
+  return tools;
 }
