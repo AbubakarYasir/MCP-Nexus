@@ -292,18 +292,62 @@ export async function getPrimitivesWithWebSocket(
 
 // Utility function for normalizing tools
 export function normalizeToolsFromPrimitives(primitives: any[]): any[] {
-  return primitives
-    .filter(p => p.type === 'tool')
-    .map(p => {
-      const tool = p.value;
-      return {
+  const normalizedTools: any[] = [];
+
+  primitives.forEach((primitive, index) => {
+    if (primitive?.type !== 'tool') {
+      return;
+    }
+
+    try {
+      const tool = primitive.value;
+
+      if (!tool || typeof tool !== 'object') {
+        logger.warn(`[normalizeToolsFromPrimitives] Rejected tool at index ${index}: not an object`);
+        return;
+      }
+
+      if (typeof tool.name !== 'string' || tool.name.trim().length === 0) {
+        logger.warn(`[normalizeToolsFromPrimitives] Rejected tool at index ${index}: missing valid name`);
+        return;
+      }
+
+      const rawInputSchema = tool.inputSchema ?? tool.input_schema ?? {};
+      const inputSchema =
+        rawInputSchema && typeof rawInputSchema === 'object' ? rawInputSchema : {};
+
+      let schema = typeof tool.schema === 'string' ? tool.schema : '{}';
+      if (typeof tool.schema !== 'string') {
+        try {
+          schema = JSON.stringify(inputSchema) ?? '{}';
+        } catch (schemaError) {
+          logger.warn(
+            `[normalizeToolsFromPrimitives] Could not serialize schema for "${tool.name}", using empty schema:`,
+            schemaError,
+          );
+        }
+      }
+
+      normalizedTools.push({
         name: tool.name,
-        description: tool.description || '',
-        input_schema: tool.inputSchema || tool.input_schema || {},
-        schema: tool.inputSchema ? JSON.stringify(tool.inputSchema) : 
-                tool.input_schema ? JSON.stringify(tool.input_schema) : '{}',
-        ...(tool.uri && { uri: tool.uri }),
-        ...(tool.arguments && { arguments: tool.arguments })
-      };
-    });
+        description: typeof tool.description === 'string' ? tool.description : '',
+        input_schema: inputSchema,
+        schema,
+        ...((tool.outputSchema !== undefined || tool.output_schema !== undefined) && {
+          output_schema: tool.outputSchema ?? tool.output_schema,
+        }),
+        ...(tool.annotations !== undefined && { annotations: tool.annotations }),
+        ...((tool._meta !== undefined || tool.meta !== undefined) && {
+          meta: tool._meta ?? tool.meta,
+        }),
+        ...(tool.icons !== undefined && { icons: tool.icons }),
+        ...(typeof tool.uri === 'string' && { uri: tool.uri }),
+        ...(Array.isArray(tool.arguments) && { arguments: tool.arguments }),
+      });
+    } catch (error) {
+      logger.warn(`[normalizeToolsFromPrimitives] Rejected tool at index ${index}:`, error);
+    }
+  });
+
+  return normalizedTools;
 }
