@@ -54,6 +54,8 @@ The first target is a stress profile of **29 MCP servers and 300+ tools through 
 See:
 
 - [Project plan](docs/PROJECT_PLAN.md)
+- [Current technical baseline](docs/BASELINE.md)
+- [Implementation plan](docs/IMPLEMENTATION_PLAN.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Tool ingestion design](docs/TOOL_INGESTION.md)
 - [Roadmap](docs/ROADMAP.md)
