@@ -29,8 +29,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --prefer-offline
 
-      - name: Type check
-        run: pnpm type-check
-
+      # The upstream i18n package generates build-time files during the
+      # normal build pipeline, so build once before running the workspace-wide
+      # standalone type-check.
       - name: Build extension
         run: pnpm build
+
+      - name: Type check
+        run: pnpm type-check
