@@ -200,6 +200,13 @@ class McpClient {
           return;
         }
 
+        if (!Array.isArray(payload) && payload?.discovery) {
+          const discovery = payload.discovery;
+          logMessage(
+            `[McpClient] Tool discovery ${discovery.status}: ${discovery.toolCount} tool(s)${discovery.preservedPreviousCatalog ? ' (previous catalog preserved)' : ''}${discovery.error ? ` - ${discovery.error}` : ''}`,
+          );
+        }
+
         logMessage(`[McpClient] Received tool update: ${tools.length} tools`);
         this.handleToolUpdate(tools);
       } catch (error) {
@@ -515,15 +522,30 @@ class McpClient {
     logMessage(`[McpClient] Getting available tools (forceRefresh: ${forceRefresh})`);
 
     try {
-      const tools = await contextBridge.sendMessage(
+      const response = await contextBridge.sendMessage(
         'background',
         'mcp:get-tools',
         { forceRefresh },
         { timeout: 10_000 }
       );
 
-      if (!Array.isArray(tools)) {
-        throw new Error('Invalid tool discovery response: expected an array');
+      // Support the legacy array response while preferring the Nexus
+      // structured discovery contract.
+      const tools = Array.isArray(response)
+        ? response
+        : Array.isArray(response?.tools)
+          ? response.tools
+          : null;
+
+      if (!tools) {
+        throw new Error('Invalid tool discovery response: expected tools array');
+      }
+
+      if (!Array.isArray(response) && response?.discovery) {
+        const discovery = response.discovery;
+        logMessage(
+          `[McpClient] Tool discovery ${discovery.status}: ${discovery.toolCount} tool(s)${discovery.preservedPreviousCatalog ? ' (previous catalog preserved)' : ''}${discovery.error ? ` - ${discovery.error}` : ''}`,
+        );
       }
 
       const normalizedTools = this.normalizeIncomingTools(tools);
