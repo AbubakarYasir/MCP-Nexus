@@ -5,9 +5,15 @@ export interface PrimitiveValue {
   description?: string;
   uri?: string;
   inputSchema?: any;
-  input_schema?: any;  // snake_case variant for compatibility
+  input_schema?: any;
+  outputSchema?: any;
+  output_schema?: any;
+  annotations?: any;
+  _meta?: any;
+  meta?: any;
+  icons?: any;
   arguments?: any[];
-  schema?: string;     // JSON string representation for legacy compatibility
+  schema?: string;
 }
 
 export interface Primitive {
@@ -20,6 +26,10 @@ export interface NormalizedTool {
   description: string;
   input_schema: any;
   schema: string;
+  output_schema?: any;
+  annotations?: any;
+  meta?: any;
+  icons?: any;
   uri?: string;
   arguments?: any[];
 }
