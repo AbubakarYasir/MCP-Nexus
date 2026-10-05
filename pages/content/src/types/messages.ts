@@ -55,8 +55,18 @@ export interface GetToolsRequest {
   forceRefresh?: boolean;
 }
 
+export interface ToolDiscoveryStatus {
+  status: 'success' | 'error';
+  timestamp: number;
+  toolCount: number;
+  preservedPreviousCatalog: boolean;
+  lastSuccessfulAt?: number;
+  error?: string;
+}
+
 export interface GetToolsResponse {
   tools: Tool[];
+  discovery: ToolDiscoveryStatus;
 }
 
 // Force reconnect
@@ -105,6 +115,7 @@ export interface ConnectionStatusChangedBroadcast {
 
 export interface ToolUpdateBroadcast {
   tools: Tool[];
+  discovery?: ToolDiscoveryStatus;
 }
 
 export interface ServerConfigUpdatedBroadcast {
