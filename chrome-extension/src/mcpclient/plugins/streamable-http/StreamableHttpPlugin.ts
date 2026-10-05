@@ -3,6 +3,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { z } from 'zod';
 import type { ITransportPlugin, PluginMetadata, PluginConfig } from '../../types/plugin.js';
+import { collectPaginatedTools } from '../../utils/toolCatalog.js';
 import { createLogger } from '@extension/shared/lib/logger';
 
 const logger = createLogger('StreamableHttpPlugin');
@@ -145,44 +146,27 @@ export class StreamableHttpPlugin implements ITransportPlugin {
    * normalizes each tool independently in McpClient.
    */
   private async listToolsPermissively(client: Client): Promise<any[]> {
-    const tools: any[] = [];
-    const seenCursors = new Set<string>();
-    let cursor: string | undefined;
-    let pageCount = 0;
-
-    do {
-      if (pageCount >= MAX_TOOL_LIST_PAGES) {
-        throw new Error(
-          `StreamableHttpPlugin: tools/list exceeded ${MAX_TOOL_LIST_PAGES} pages; aborting to prevent an infinite pagination loop`,
-        );
-      }
-
-      if (cursor) {
-        if (seenCursors.has(cursor)) {
-          throw new Error(`StreamableHttpPlugin: tools/list repeated cursor "${cursor}"`);
-        }
-        seenCursors.add(cursor);
-      }
-
+    const result = await collectPaginatedTools(async cursor => {
       const request = cursor
         ? { method: 'tools/list', params: { cursor } }
         : { method: 'tools/list' };
 
-      const result = await client.request(
+      const page = await client.request(
         request as any,
         PermissiveListToolsResultSchema,
       );
 
-      tools.push(...result.tools);
-      cursor = result.nextCursor;
-      pageCount += 1;
-    } while (cursor);
+      return {
+        tools: page.tools,
+        nextCursor: page.nextCursor,
+      };
+    }, MAX_TOOL_LIST_PAGES);
 
     logger.debug(
-      `[StreamableHttpPlugin] Retrieved ${tools.length} raw tools across ${pageCount} tools/list page(s)`,
+      `[StreamableHttpPlugin] Retrieved ${result.tools.length} raw tools across ${result.pageCount} tools/list page(s)`,
     );
 
-    return tools;
+    return result.tools;
   }
 
   async getPrimitives(client: Client): Promise<any[]> {
