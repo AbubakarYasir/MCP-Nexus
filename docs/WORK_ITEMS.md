@@ -27,7 +27,7 @@ GitHub Issues are currently disabled for this repository, so this file is the ca
 - [x] no error -> [] conversion
 - [x] last-known-good behavior
 - [x] fix background/content tool-update payload mismatch
-- [ ] regression tests
+- [x] regression tests
 
 ## P2 — stable catalog
 
@@ -77,3 +77,10 @@ GitHub Issues are currently disabled for this repository, so this file is the ca
 - [ ] migration notes
 - [ ] release notes
 - [ ] reproducible package
+
+
+## Technical debt
+
+- [ ] fix inherited content-script ImportMeta.env typing
+- [ ] fix inherited DOM iterable typing
+- [ ] fix inherited browser timer versus NodeJS.Timeout typing
