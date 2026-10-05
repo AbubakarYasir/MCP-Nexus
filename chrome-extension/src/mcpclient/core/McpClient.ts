@@ -459,21 +459,88 @@ export class McpClient extends EventEmitter<AllEvents> {
   }
 
   private normalizeTools(toolPrimitives: Primitive[]): NormalizedTool[] {
-    return toolPrimitives.map(p => {
-      const tool = p.value;
-      return {
-        name: tool.name,
-        description: tool.description || '',
-        input_schema: tool.inputSchema || tool.input_schema || {},
-        schema: tool.inputSchema
-          ? JSON.stringify(tool.inputSchema)
-          : tool.input_schema
-            ? JSON.stringify(tool.input_schema)
-            : '{}',
-        ...(tool.uri && { uri: tool.uri }),
-        ...(tool.arguments && { arguments: tool.arguments }),
-      };
+    const normalizedTools: NormalizedTool[] = [];
+
+    toolPrimitives.forEach((primitive, index) => {
+      try {
+        const tool = (primitive as any)?.value;
+
+        if (!tool || typeof tool !== 'object') {
+          logger.warn(`[McpClient] Rejected tool at index ${index}: tool is not an object`);
+          return;
+        }
+
+        if (typeof tool.name !== 'string' || tool.name.trim().length === 0) {
+          logger.warn(`[McpClient] Rejected tool at index ${index}: missing valid name`);
+          return;
+        }
+
+        const rawInputSchema = tool.inputSchema ?? tool.input_schema ?? {};
+        const inputSchema =
+          rawInputSchema && typeof rawInputSchema === 'object' ? rawInputSchema : {};
+
+        let schema = '{}';
+        if (typeof tool.schema === 'string') {
+          schema = tool.schema;
+        } else {
+          try {
+            schema = JSON.stringify(inputSchema) ?? '{}';
+          } catch (schemaError) {
+            logger.warn(
+              `[McpClient] Could not serialize input schema for tool "${tool.name}", using empty schema:`,
+              schemaError,
+            );
+          }
+        }
+
+        const normalized: NormalizedTool = {
+          name: tool.name,
+          description: typeof tool.description === 'string' ? tool.description : '',
+          input_schema: inputSchema,
+          schema,
+        };
+
+        if (tool.outputSchema !== undefined) {
+          normalized.output_schema = tool.outputSchema;
+        } else if (tool.output_schema !== undefined) {
+          normalized.output_schema = tool.output_schema;
+        }
+
+        if (tool.annotations !== undefined) {
+          normalized.annotations = tool.annotations;
+        }
+
+        if (tool._meta !== undefined) {
+          normalized.meta = tool._meta;
+        } else if (tool.meta !== undefined) {
+          normalized.meta = tool.meta;
+        }
+
+        if (tool.icons !== undefined) {
+          normalized.icons = tool.icons;
+        }
+
+        if (typeof tool.uri === 'string') {
+          normalized.uri = tool.uri;
+        }
+
+        if (Array.isArray(tool.arguments)) {
+          normalized.arguments = tool.arguments;
+        }
+
+        normalizedTools.push(normalized);
+      } catch (error) {
+        logger.warn(`[McpClient] Rejected tool at index ${index} during normalization:`, error);
+      }
     });
+
+    if (normalizedTools.length !== toolPrimitives.length) {
+      logger.warn(
+        `[McpClient] Accepted ${normalizedTools.length}/${toolPrimitives.length} raw tools; rejected ${toolPrimitives.length - normalizedTools.length}`,
+      );
+    }
+
+    return normalizedTools;
   }
 
   private clearPrimitivesCache(): void {
