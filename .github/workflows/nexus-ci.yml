@@ -29,6 +29,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --prefer-offline
 
+      - name: Discovery regression tests
+        run: pnpm test:nexus-discovery
+
       # The upstream i18n package generates build-time files during the
       # normal build pipeline, so build once before running the workspace-wide
       # standalone type-check.
