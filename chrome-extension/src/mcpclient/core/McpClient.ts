@@ -404,8 +404,17 @@ export class McpClient extends EventEmitter<AllEvents> {
       logger.debug('[McpClient] Fetching primitives from server...');
       const primitives = await this.activePlugin.getPrimitives(this.client);
 
-      // Normalize tools
-      const tools = this.normalizeTools(primitives.filter(p => p.type === 'tool'));
+      // Normalize tools independently. A genuinely empty raw list is valid,
+      // but a non-empty raw list where every tool was rejected is a discovery failure.
+      const toolPrimitives = primitives.filter(p => p.type === 'tool');
+      const tools = this.normalizeTools(toolPrimitives);
+
+      if (toolPrimitives.length > 0 && tools.length === 0) {
+        throw new Error(
+          `MCP tool discovery returned ${toolPrimitives.length} raw tool(s), but none could be normalized`,
+        );
+      }
+
       const resources = primitives.filter(p => p.type === 'resource').map(p => p.value);
       const prompts = primitives.filter(p => p.type === 'prompt').map(p => p.value);
 
