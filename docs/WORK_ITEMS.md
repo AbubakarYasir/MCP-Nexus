@@ -18,15 +18,15 @@ GitHub Issues are currently disabled for this repository, so this file is the ca
 
 ## P1 — resilient discovery
 
-- [ ] tolerant tools/list collection
-- [ ] nextCursor pagination
-- [ ] per-tool normalization
-- [ ] guarded schema serialization
-- [ ] preserve outputSchema/annotations/metadata
+- [x] tolerant tools/list collection
+- [x] nextCursor pagination
+- [x] per-tool normalization
+- [x] guarded schema serialization
+- [x] preserve outputSchema/annotations/metadata
 - [ ] explicit discovery result
-- [ ] no error -> [] conversion
-- [ ] last-known-good behavior
-- [ ] fix background/content tool-update payload mismatch
+- [x] no error -> [] conversion
+- [x] last-known-good behavior
+- [x] fix background/content tool-update payload mismatch
 - [ ] regression tests
 
 ## P2 — stable catalog
