@@ -1,6 +1,6 @@
 # Content Scripts
 
-This directory contains the content scripts and core functionality for the MCP SuperAssistant Chrome extension.
+This directory contains the content scripts and core functionality for the MCP Nexus Chrome extension.
 
 ## Overview
 
@@ -77,18 +77,18 @@ For detailed development guides, see:
 
 ## Implementation Status
 
-### ✅ Completed
+### âœ… Completed
 - **Plugin System Core** (Session 7)
 - **DefaultAdapter** - Universal fallback
 - **ExampleForumAdapter** - Site-specific example (Session 8)
 - **Event System** - Real-time communication
 - **React Integration** - Hooks and components
 
-### 🔄 In Progress  
+### ðŸ”„ In Progress  
 - **Testing Framework** - Unit and integration tests
 - **Legacy Migration** - Moving from old adapter system
 
-### 📋 Planned
+### ðŸ“‹ Planned
 - **Additional Site Adapters** - Reddit, GitHub, Twitter
 - **Dynamic Loading** - Runtime adapter discovery
 - **Performance Monitoring** - Metrics and optimization
@@ -110,15 +110,15 @@ pnpm lint
 
 ```
 src/
-├── plugins/           # New plugin system (Session 7+)
-│   ├── adapters/      # Site-specific adapters
-│   ├── README.md      # Plugin system docs
-│   └── ...
-├── adapters/          # Legacy adapter system
-├── components/        # React components
-├── events/           # Event system
-├── hooks/            # React hooks
-├── stores/           # State management
-├── utils/            # Utilities
-└── types/            # Type definitions
+â”œâ”€â”€ plugins/           # New plugin system (Session 7+)
+â”‚   â”œâ”€â”€ adapters/      # Site-specific adapters
+â”‚   â”œâ”€â”€ README.md      # Plugin system docs
+â”‚   â””â”€â”€ ...
+â”œâ”€â”€ adapters/          # Legacy adapter system
+â”œâ”€â”€ components/        # React components
+â”œâ”€â”€ events/           # Event system
+â”œâ”€â”€ hooks/            # React hooks
+â”œâ”€â”€ stores/           # State management
+â”œâ”€â”€ utils/            # Utilities
+â””â”€â”€ types/            # Type definitions
 ```

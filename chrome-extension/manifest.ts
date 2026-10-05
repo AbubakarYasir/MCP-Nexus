@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+﻿import { readFileSync } from 'node:fs';
 
 const packageJson = JSON.parse(readFileSync('./package.json', 'utf8'));
 
@@ -20,14 +20,14 @@ const packageJson = JSON.parse(readFileSync('./package.json', 'utf8'));
 const manifest = {
   manifest_version: 3,
   default_locale: 'en',
-  name: 'MCP SuperAssistant',
+  name: 'MCP Nexus',
   browser_specific_settings: {
     gecko: {
       id: 'saurabh@mcpsuperassistant.ai',
     },
   },
   version: packageJson.version,
-  description: 'MCP SuperAssistant',
+  description: 'Unified MCP research workspace for ChatGPT and the web',
   host_permissions: [
     '*://*.perplexity.ai/*',
     '*://*.chat.openai.com/*',
@@ -178,3 +178,4 @@ const manifest = {
 } satisfies chrome.runtime.ManifestV3;
 
 export default manifest;
+

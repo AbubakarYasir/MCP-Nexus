@@ -684,7 +684,7 @@ const Sidebar: React.FC<SidebarProps> = ({ initialPreferences }) => {
                   className="text-slate-800 dark:text-slate-100 hover:text-slate-600 dark:hover:text-slate-300 transition-colors duration-150 no-underline"
                   aria-label="Visit MCP Super Assistant Website">
                   <Typography variant="h4" className="font-semibold">
-                    MCP SuperAssistant
+                    MCP Nexus
                   </Typography>
                 </a>
                 {/* Existing icon link */}
