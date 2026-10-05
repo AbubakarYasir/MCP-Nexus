@@ -127,3 +127,24 @@ and only a successful tools/list response may authoritatively replace the catalo
 ## Next step
 
 Implement Phase 1 from IMPLEMENTATION_PLAN.md, then run the TESTING.md matrix before changing the large-catalog UI.
+
+
+## CI baseline
+
+MCP Nexus now has its own CI gate.
+
+Required checks for current Nexus discovery work:
+
+- discovery regression tests
+- production extension build
+- chrome-extension package type-check
+
+The inherited content-script workspace still has unrelated TypeScript errors in upstream code, including:
+
+- missing ImportMeta.env typing
+- DOM NodeList iterable typing
+- NodeJS Timeout versus browser number timer typing
+
+Those errors are tracked as legacy workspace debt and are run as a non-blocking visibility check. They should be fixed separately rather than mixed into the discovery rewrite.
+
+The production extension build and Nexus discovery regression tests pass with the current Phase 1 code.
