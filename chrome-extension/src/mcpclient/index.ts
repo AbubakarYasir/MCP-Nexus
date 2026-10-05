@@ -10,6 +10,7 @@ import { WebSocketTransport } from './plugins/websocket/WebSocketTransport.js';
 
 // Configuration
 import { DEFAULT_CLIENT_CONFIG } from './types/config.js';
+import { normalizeToolValues } from './utils/toolCatalog.js';
 import { createLogger } from '@extension/shared/lib/logger';
 
 // Export core classes
@@ -292,62 +293,17 @@ export async function getPrimitivesWithWebSocket(
 
 // Utility function for normalizing tools
 export function normalizeToolsFromPrimitives(primitives: any[]): any[] {
-  const normalizedTools: any[] = [];
+  const rawTools = primitives
+    .filter(primitive => primitive?.type === 'tool')
+    .map(primitive => primitive.value);
 
-  primitives.forEach((primitive, index) => {
-    if (primitive?.type !== 'tool') {
-      return;
-    }
+  const { tools, rejections } = normalizeToolValues(rawTools);
 
-    try {
-      const tool = primitive.value;
-
-      if (!tool || typeof tool !== 'object') {
-        logger.warn(`[normalizeToolsFromPrimitives] Rejected tool at index ${index}: not an object`);
-        return;
-      }
-
-      if (typeof tool.name !== 'string' || tool.name.trim().length === 0) {
-        logger.warn(`[normalizeToolsFromPrimitives] Rejected tool at index ${index}: missing valid name`);
-        return;
-      }
-
-      const rawInputSchema = tool.inputSchema ?? tool.input_schema ?? {};
-      const inputSchema =
-        rawInputSchema && typeof rawInputSchema === 'object' ? rawInputSchema : {};
-
-      let schema = typeof tool.schema === 'string' ? tool.schema : '{}';
-      if (typeof tool.schema !== 'string') {
-        try {
-          schema = JSON.stringify(inputSchema) ?? '{}';
-        } catch (schemaError) {
-          logger.warn(
-            `[normalizeToolsFromPrimitives] Could not serialize schema for "${tool.name}", using empty schema:`,
-            schemaError,
-          );
-        }
-      }
-
-      normalizedTools.push({
-        name: tool.name,
-        description: typeof tool.description === 'string' ? tool.description : '',
-        input_schema: inputSchema,
-        schema,
-        ...((tool.outputSchema !== undefined || tool.output_schema !== undefined) && {
-          output_schema: tool.outputSchema ?? tool.output_schema,
-        }),
-        ...(tool.annotations !== undefined && { annotations: tool.annotations }),
-        ...((tool._meta !== undefined || tool.meta !== undefined) && {
-          meta: tool._meta ?? tool.meta,
-        }),
-        ...(tool.icons !== undefined && { icons: tool.icons }),
-        ...(typeof tool.uri === 'string' && { uri: tool.uri }),
-        ...(Array.isArray(tool.arguments) && { arguments: tool.arguments }),
-      });
-    } catch (error) {
-      logger.warn(`[normalizeToolsFromPrimitives] Rejected tool at index ${index}:`, error);
-    }
+  rejections.forEach(rejection => {
+    logger.warn(
+      `[normalizeToolsFromPrimitives] Rejected tool at index ${rejection.index}: ${rejection.reason}`,
+    );
   });
 
-  return normalizedTools;
+  return tools;
 }
