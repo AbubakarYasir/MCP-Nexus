@@ -1,11 +1,20 @@
 import { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import { z } from 'zod';
 import type { ITransportPlugin, PluginMetadata, PluginConfig } from '../../types/plugin.js';
 import { createLogger } from '@extension/shared/lib/logger';
 
-
 const logger = createLogger('StreamableHttpPlugin');
+
+const PermissiveListToolsResultSchema = z
+  .object({
+    tools: z.array(z.unknown()),
+    nextCursor: z.string().optional(),
+  })
+  .passthrough();
+
+const MAX_TOOL_LIST_PAGES = 1000;
 
 export class StreamableHttpPlugin implements ITransportPlugin {
   readonly metadata: PluginMetadata = {
@@ -13,14 +22,13 @@ export class StreamableHttpPlugin implements ITransportPlugin {
     version: '1.0.0',
     transportType: 'streamable-http',
     description: 'Streamable HTTP transport for MCP protocol',
-    author: 'MCP Nexus'
+    author: 'MCP Nexus',
   };
 
   private transport: Transport | null = null;
 
   async initialize(config: PluginConfig): Promise<void> {
-    // Configuration can be used for future enhancements
-    logger.debug(`Initialized with config:`, config);
+    logger.debug('Initialized with config:', config);
   }
 
   async connect(uri: string): Promise<Transport> {
@@ -39,21 +47,16 @@ export class StreamableHttpPlugin implements ITransportPlugin {
 
   private async createConnection(uri: string): Promise<Transport> {
     try {
-      // Validate and parse URI
       const url = new URL(uri);
       logger.debug(`Creating Streamable HTTP transport for: ${url.toString()}`);
 
-      // Create streamable HTTP transport
       const transport = new StreamableHTTPClientTransport(url);
 
-      // Return the transport without testing
-      // The main client will handle the connection test
       logger.debug('[StreamableHttpPlugin] Streamable HTTP transport created successfully');
       return transport;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
 
-      // Enhanced error messages for Streamable HTTP-specific issues
       let enhancedError = errorMessage;
       if (errorMessage.includes('404')) {
         enhancedError = 'Streamable HTTP endpoint not found (404). Verify the server URL and endpoint path.';
@@ -86,8 +89,6 @@ export class StreamableHttpPlugin implements ITransportPlugin {
   }
 
   isConnected(): boolean {
-    // The plugin creates transports but doesn't manage connection state
-    // Connection state is managed by the main client
     return this.transport !== null;
   }
 
@@ -115,14 +116,7 @@ export class StreamableHttpPlugin implements ITransportPlugin {
       return false;
     }
 
-    try {
-      // For streamable HTTP, we assume healthy if transport exists
-      // The streamable HTTP transport handles its own health monitoring
-      return true;
-    } catch (error) {
-      logger.warn('[StreamableHttpPlugin] Health check failed:', error);
-      return false;
-    }
+    return true;
   }
 
   async callTool(client: Client, toolName: string, args: any): Promise<any> {
@@ -142,6 +136,55 @@ export class StreamableHttpPlugin implements ITransportPlugin {
     }
   }
 
+  /**
+   * Fetch tools without applying the SDK's catalog-wide ToolSchema.
+   *
+   * Aggregated gateways may expose tools produced by different MCP SDK
+   * versions. A single unusual tool must not make the complete tools/list
+   * response unusable, so Nexus validates the response envelope here and
+   * normalizes each tool independently in McpClient.
+   */
+  private async listToolsPermissively(client: Client): Promise<any[]> {
+    const tools: any[] = [];
+    const seenCursors = new Set<string>();
+    let cursor: string | undefined;
+    let pageCount = 0;
+
+    do {
+      if (pageCount >= MAX_TOOL_LIST_PAGES) {
+        throw new Error(
+          `StreamableHttpPlugin: tools/list exceeded ${MAX_TOOL_LIST_PAGES} pages; aborting to prevent an infinite pagination loop`,
+        );
+      }
+
+      if (cursor) {
+        if (seenCursors.has(cursor)) {
+          throw new Error(`StreamableHttpPlugin: tools/list repeated cursor "${cursor}"`);
+        }
+        seenCursors.add(cursor);
+      }
+
+      const request = cursor
+        ? { method: 'tools/list', params: { cursor } }
+        : { method: 'tools/list' };
+
+      const result = await client.request(
+        request as any,
+        PermissiveListToolsResultSchema,
+      );
+
+      tools.push(...result.tools);
+      cursor = result.nextCursor;
+      pageCount += 1;
+    } while (cursor);
+
+    logger.debug(
+      `[StreamableHttpPlugin] Retrieved ${tools.length} raw tools across ${pageCount} tools/list page(s)`,
+    );
+
+    return tools;
+  }
+
   async getPrimitives(client: Client): Promise<any[]> {
     if (!this.isConnected()) {
       throw new Error('StreamableHttpPlugin: Not connected');
@@ -156,31 +199,35 @@ export class StreamableHttpPlugin implements ITransportPlugin {
 
       if (capabilities?.resources) {
         promises.push(
-          client.listResources().then(({ resources }) => {
-            resources.forEach(item => primitives.push({ type: 'resource', value: item }));
-          }).catch(error => {
-            logger.warn('[StreamableHttpPlugin] Failed to list resources:', error);
-          }),
+          client
+            .listResources()
+            .then(({ resources }) => {
+              resources.forEach(item => primitives.push({ type: 'resource', value: item }));
+            })
+            .catch(error => {
+              logger.warn('[StreamableHttpPlugin] Failed to list resources:', error);
+            }),
         );
       }
 
       if (capabilities?.tools) {
         promises.push(
-          client.listTools().then(({ tools }) => {
+          this.listToolsPermissively(client).then(tools => {
             tools.forEach(item => primitives.push({ type: 'tool', value: item }));
-          }).catch(error => {
-            logger.warn('[StreamableHttpPlugin] Failed to list tools:', error);
           }),
         );
       }
 
       if (capabilities?.prompts) {
         promises.push(
-          client.listPrompts().then(({ prompts }) => {
-            prompts.forEach(item => primitives.push({ type: 'prompt', value: item }));
-          }).catch(error => {
-            logger.warn('[StreamableHttpPlugin] Failed to list prompts:', error);
-          }),
+          client
+            .listPrompts()
+            .then(({ prompts }) => {
+              prompts.forEach(item => primitives.push({ type: 'prompt', value: item }));
+            })
+            .catch(error => {
+              logger.warn('[StreamableHttpPlugin] Failed to list prompts:', error);
+            }),
         );
       }
 
@@ -189,7 +236,7 @@ export class StreamableHttpPlugin implements ITransportPlugin {
       return primitives;
     } catch (error) {
       logger.error('[StreamableHttpPlugin] Failed to get primitives:', error);
-      return [];
+      throw error;
     }
   }
 }
