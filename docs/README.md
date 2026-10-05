@@ -12,6 +12,9 @@ For users and contributors:
 
 For developers:
 
+- [Current baseline](BASELINE.md) — confirmed behavior and known failure paths
+- [Implementation plan](IMPLEMENTATION_PLAN.md) — file-by-file upgrade sequence
+- [Work items](WORK_ITEMS.md) — canonical checklist while GitHub Issues are disabled
 - [Architecture](ARCHITECTURE.md) — current and target data flow
 - [Tool ingestion](TOOL_INGESTION.md) — the core reliability design
 - [Testing](TESTING.md) — required test matrix
