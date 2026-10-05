@@ -60,6 +60,17 @@ let isConnected: boolean = false;
 let connectionCount: number = 0;
 let isInitialized: boolean = false;
 
+// Tool discovery state is deliberately separate from connection state.
+// A failed refresh must never masquerade as a successful empty catalog.
+let lastKnownGoodTools: any[] = [];
+let hasSuccessfulToolSnapshot = false;
+
+function rememberSuccessfulTools(tools: any[]): any[] {
+  lastKnownGoodTools = [...tools];
+  hasSuccessfulToolSnapshot = true;
+  return tools;
+}
+
 /**
  * Initialize server URL from Chrome storage
  * Replaces mcpInterface initialization functionality
@@ -294,7 +305,7 @@ async function initializeExtension() {
         const primitives = await getPrimitivesWithBackwardsCompatibility(serverUrl, false, connectionType);
         logger.debug(`Retrieved ${primitives.length} primitives for initial broadcast`);
         
-        const tools = normalizeTools(primitives);
+        const tools = rememberSuccessfulTools(normalizeTools(primitives));
         logger.debug(`Broadcasting ${tools.length} normalized initial tools`);
         
         broadcastToolsUpdateToContentScripts(tools);
@@ -343,7 +354,7 @@ async function tryConnectToServer(uri: string, type: ConnectionType = connection
       const primitives = await getPrimitivesWithBackwardsCompatibility(uri, true, type);
       logger.debug(`Retrieved ${primitives.length} primitives after connection`);
       
-      const tools = normalizeTools(primitives);
+      const tools = rememberSuccessfulTools(normalizeTools(primitives));
       logger.debug(`Broadcasting ${tools.length} normalized tools after successful connection`);
       
       broadcastToolsUpdateToContentScripts(tools);
@@ -411,7 +422,7 @@ setInterval(async () => {
         const primitives = await getPrimitivesWithBackwardsCompatibility(getServerUrl(), true, connectionType);
         logger.debug(`Periodic check: Retrieved ${primitives.length} primitives`);
         
-        const tools = normalizeTools(primitives);
+        const tools = rememberSuccessfulTools(normalizeTools(primitives));
         logger.debug(`Periodic check: Broadcasting ${tools.length} normalized tools`);
         
         broadcastToolsUpdateToContentScripts(tools);
@@ -738,14 +749,21 @@ async function handleMcpMessage(
           logger.debug(`Retrieved ${primitives.length} primitives from server`);
           
           // Use the helper function to normalize tools with proper schema handling
-          const tools = normalizeTools(primitives);
+          const tools = rememberSuccessfulTools(normalizeTools(primitives));
           logger.debug(`Returning ${tools.length} normalized tools to content script`);
           
           result = tools;
         } catch (error) {
           logger.error('[Background] Error getting tools:', error);
-          // Return empty array instead of throwing to prevent UI crashes
-          result = [];
+
+          if (hasSuccessfulToolSnapshot) {
+            logger.warn(
+              `[Background] Tool refresh failed; preserving ${lastKnownGoodTools.length} last-known-good tool(s)`,
+            );
+            result = [...lastKnownGoodTools];
+          } else {
+            throw error;
+          }
         }
         break;
       }
@@ -786,7 +804,7 @@ async function handleMcpMessage(
               const primitives = await getPrimitivesWithBackwardsCompatibility(getServerUrl(), true, connectionType);
               logger.debug(`Retrieved ${primitives.length} primitives after reconnection`);
               
-              const tools = normalizeTools(primitives);
+              const tools = rememberSuccessfulTools(normalizeTools(primitives));
               logger.debug(`Broadcasting ${tools.length} normalized tools after reconnection`);
               
               broadcastToolsUpdateToContentScripts(tools);
@@ -865,7 +883,7 @@ async function handleMcpMessage(
             if (isConnected) {
               try {
                 const primitives = await getPrimitivesWithBackwardsCompatibility(config.uri, true, newType);
-                const tools = normalizeTools(primitives);
+                const tools = rememberSuccessfulTools(normalizeTools(primitives));
                 broadcastToolsUpdateToContentScripts(tools);
                 logger.debug(`Broadcasted ${tools.length} normalized tools after config update`);
               } catch (toolError) {
