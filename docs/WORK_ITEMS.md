@@ -23,7 +23,7 @@ GitHub Issues are currently disabled for this repository, so this file is the ca
 - [x] per-tool normalization
 - [x] guarded schema serialization
 - [x] preserve outputSchema/annotations/metadata
-- [ ] explicit discovery result
+- [x] explicit discovery result
 - [x] no error -> [] conversion
 - [x] last-known-good behavior
 - [x] fix background/content tool-update payload mismatch
