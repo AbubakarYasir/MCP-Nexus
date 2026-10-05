@@ -11,6 +11,7 @@ import type { ClientConfig, ConnectionRequest } from '../types/config.js';
 import { DEFAULT_CLIENT_CONFIG } from '../types/config.js';
 import type { TransportType, ITransportPlugin, PluginConfig } from '../types/plugin.js';
 import type { Primitive, NormalizedTool, PrimitivesResponse } from '../types/primitives.js';
+import { normalizeToolValues } from '../utils/toolCatalog.js';
 import type { AllEvents } from '../types/events.js';
 import { createLogger } from '@extension/shared/lib/logger';
 import { analyticsService } from '../../../utils/analytics-service.js';
@@ -468,88 +469,23 @@ export class McpClient extends EventEmitter<AllEvents> {
   }
 
   private normalizeTools(toolPrimitives: Primitive[]): NormalizedTool[] {
-    const normalizedTools: NormalizedTool[] = [];
+    const { tools, rejections } = normalizeToolValues(
+      toolPrimitives.map(primitive => (primitive as any)?.value),
+    );
 
-    toolPrimitives.forEach((primitive, index) => {
-      try {
-        const tool = (primitive as any)?.value;
-
-        if (!tool || typeof tool !== 'object') {
-          logger.warn(`[McpClient] Rejected tool at index ${index}: tool is not an object`);
-          return;
-        }
-
-        if (typeof tool.name !== 'string' || tool.name.trim().length === 0) {
-          logger.warn(`[McpClient] Rejected tool at index ${index}: missing valid name`);
-          return;
-        }
-
-        const rawInputSchema = tool.inputSchema ?? tool.input_schema ?? {};
-        const inputSchema =
-          rawInputSchema && typeof rawInputSchema === 'object' ? rawInputSchema : {};
-
-        let schema = '{}';
-        if (typeof tool.schema === 'string') {
-          schema = tool.schema;
-        } else {
-          try {
-            schema = JSON.stringify(inputSchema) ?? '{}';
-          } catch (schemaError) {
-            logger.warn(
-              `[McpClient] Could not serialize input schema for tool "${tool.name}", using empty schema:`,
-              schemaError,
-            );
-          }
-        }
-
-        const normalized: NormalizedTool = {
-          name: tool.name,
-          description: typeof tool.description === 'string' ? tool.description : '',
-          input_schema: inputSchema,
-          schema,
-        };
-
-        if (tool.outputSchema !== undefined) {
-          normalized.output_schema = tool.outputSchema;
-        } else if (tool.output_schema !== undefined) {
-          normalized.output_schema = tool.output_schema;
-        }
-
-        if (tool.annotations !== undefined) {
-          normalized.annotations = tool.annotations;
-        }
-
-        if (tool._meta !== undefined) {
-          normalized.meta = tool._meta;
-        } else if (tool.meta !== undefined) {
-          normalized.meta = tool.meta;
-        }
-
-        if (tool.icons !== undefined) {
-          normalized.icons = tool.icons;
-        }
-
-        if (typeof tool.uri === 'string') {
-          normalized.uri = tool.uri;
-        }
-
-        if (Array.isArray(tool.arguments)) {
-          normalized.arguments = tool.arguments;
-        }
-
-        normalizedTools.push(normalized);
-      } catch (error) {
-        logger.warn(`[McpClient] Rejected tool at index ${index} during normalization:`, error);
-      }
+    rejections.forEach(rejection => {
+      logger.warn(
+        `[McpClient] Rejected tool at index ${rejection.index}: ${rejection.reason}`,
+      );
     });
 
-    if (normalizedTools.length !== toolPrimitives.length) {
+    if (rejections.length > 0) {
       logger.warn(
-        `[McpClient] Accepted ${normalizedTools.length}/${toolPrimitives.length} raw tools; rejected ${toolPrimitives.length - normalizedTools.length}`,
+        `[McpClient] Accepted ${tools.length}/${toolPrimitives.length} raw tools; rejected ${rejections.length}`,
       );
     }
 
-    return normalizedTools;
+    return tools;
   }
 
   private clearPrimitivesCache(): void {
